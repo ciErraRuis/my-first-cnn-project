@@ -11,6 +11,7 @@ from convneXt import ConvneXt
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 print("DEVICE:", DEVICE)
 
+# need to change the DATA_DIR before training
 DATA_DIR = '../../hw2p2/data/11-785-s23-hw2p2-classification'
 TRAIN_DIR = os.path.join(DATA_DIR, "train")
 VAL_DIR = os.path.join(DATA_DIR, "dev")
