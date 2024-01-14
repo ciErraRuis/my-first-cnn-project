@@ -122,9 +122,7 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
 
     similarity_values = torch.stack(
         [similarity(unknown_feats, known_feature) for known_feature in known_feats])
-    
     max_similarity_values, predictions = similarity_values.max(0)
-
     max_similarity_values, predictions = max_similarity_values.cpu(
     ).numpy(), predictions.cpu().numpy()
     predictions = predictions.reshape(-1)
