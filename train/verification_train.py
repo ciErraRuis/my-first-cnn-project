@@ -205,8 +205,8 @@ def main():
         # Wandb creates random run names if you skip this field
         name="ConvnextWithArcface_verification_lr=1e-3_weightdecay=1e-2_margin=0.4",
         reinit=True,  # Allows reinitalizing runs when you re-run this cell
-        # id = "", ### Insert specific run id here if you want to resume a previous run
-        # resume = "", ### You need this to resume previous runs, but comment out reinit = True when using this
+        # id =, ### Insert specific run id here if you want to resume a previous run
+        # resume = "must", ### You need this to resume previous runs, but comment out reinit = True when using this
         project="hw2p2",  # Project should be created in your wandb account
         config=config  # Wandb Config for your run
     )
