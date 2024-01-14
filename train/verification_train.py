@@ -4,7 +4,6 @@ import torchvision
 from PIL import Image
 import glob
 from tqdm import tqdm
-from timm.data.mixup import Mixup
 import pandas as pd
 from sklearn.metrics import accuracy_score
 import torch.nn.functional as F
@@ -17,7 +16,6 @@ from convneXt import ConvneXt
 from convneXt_with_Arcface import ConvneXt_with_Arcface
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 MODEL_PATH = "convneXt_lr=2e-3_cosinelr_weightdecay=1e-2_randaug_mixupofficial.pth"
 DATA_DIR = "data/11-785-s23-hw2p2-classification"
 VAL_DIR = "data/11-785-s23-hw2p2-verification"
@@ -31,18 +29,10 @@ config = {
     'lr': 1e-3,
     'weight_decay': 1e-2,
     'min_lr': 1e-5,
-    'margin': 0.45,
-    'label_smoothing': 0.1,
-    'mixup_alpha': 0.8,
-    'cutmix': 1,
-    'mixup_prob': 1,
-    'mixup_switch_prob': 0.5,
-    'mixup_mode': 'batch'
+    'margin': 0.45
 }
 
-
 def train_verification(model, dataloader, optimizer, criterion, scaler):
-
     model.train()
 
     # Progress Bar
@@ -54,7 +44,6 @@ def train_verification(model, dataloader, optimizer, criterion, scaler):
 
     for i, (images, labels) in enumerate(dataloader):
         optimizer.zero_grad()  # Zero gradients
-
         images, labels = images.to(DEVICE), labels.to(DEVICE)
         # print("image shape: ", images.shape, "labels shape: ", labels.shape)
         with torch.cuda.amp.autocast():  # This implements mixed precision. Thats it!
@@ -84,23 +73,18 @@ def train_verification(model, dataloader, optimizer, criterion, scaler):
 
     acc = 100 * num_correct / (config['batch_size'] * len(dataloader))
     total_loss = float(total_loss / len(dataloader))
-
     return acc, total_loss
 
-
 def eval_verification(unknown_images, known_images, known_paths, model, similarity, batch_size=config['batch_size'], mode='val', threshold=0.33):
-
+    model.eval()
     unknown_feats, known_feats = [], []
-
     batch_bar = tqdm(total=len(unknown_images)//batch_size,
                      dynamic_ncols=True, position=0, leave=False, desc=mode)
-    model.eval()
 
     # We load the images as batches for memory optimization and avoiding CUDA OOM errors
     for i in range(0, unknown_images.shape[0], batch_size):
         # Slice a given portion upto batch_size
         unknown_batch = unknown_images[i:i+batch_size]
-
         with torch.no_grad():
             unknown_feat = model(unknown_batch.float().to(
                 DEVICE))  # Get features from model
@@ -111,12 +95,10 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
 
     batch_bar = tqdm(total=len(known_images)//batch_size,
                      dynamic_ncols=True, position=0, leave=False, desc=mode)
-
     for i in range(0, known_images.shape[0], batch_size):
         known_batch = known_images[i:i+batch_size]
         with torch.no_grad():
             known_feat = model(known_batch.float().to(DEVICE))
-
         known_feats.append(known_feat)
         batch_bar.update()
 
@@ -125,14 +107,10 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
     # Concatenate all the batches
     unknown_feats = torch.cat(unknown_feats, dim=0)
     known_feats = torch.cat(known_feats, dim=0)
-
     similarity_values = torch.stack(
         [similarity(unknown_feats, known_feature) for known_feature in known_feats])
-    # Print the inner list comprehension in a separate cell - what is really happening?
 
-    # Why are we doing an max here, where are the return values?
     max_similarity_values, predictions = similarity_values.max(0)
-
     max_similarity_values, predictions = max_similarity_values.cpu(
     ).numpy(), predictions.cpu().numpy()
     
@@ -161,29 +139,25 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
         CSV_PATH = os.path.join(VAL_DIR, "verification_dev.csv")
         true_ids = pd.read_csv(CSV_PATH)['label'].tolist()
         accuracy = accuracy_score(pred_id_strings, true_ids)
-
         return accuracy * 100
 
     return pred_id_strings
 
  #------------------------------------------------------------------------------
-
 def main():
     # get the evaluation data
     known_regex = os.path.join(VAL_DIR, "known/*/*")
     known_paths = [i.split("/")[-2] for i in sorted(glob.glob(known_regex))]
+    known_images = [Image.open(p) for p in tqdm(sorted(glob.glob(known_regex)))]
 
     unknown_dev_regex = os.path.join(VAL_DIR, "unknown_dev/*")
     unknown_test_regex = os.path.join(VAL_DIR, "unknown_test/*")
-
     unknown_dev_images = [Image.open(p) for p in tqdm(sorted(glob.glob(unknown_dev_regex)))]
     unknown_test_images = [Image.open(p) for p in tqdm(sorted(glob.glob(unknown_test_regex)))]
-    known_images = [Image.open(p) for p in tqdm(sorted(glob.glob(known_regex)))]
 
     transforms = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize(mean=[0.5116, 0.4026, 0.3519], std=[0.3073, 0.2697, 0.2587])])
-
     unknown_dev_images = torch.stack([transforms(x) for x in unknown_dev_images])
     unknown_test_images = torch.stack([transforms(x) for x in unknown_test_images])
     known_images  = torch.stack([transforms(y) for y in known_images])
@@ -194,30 +168,18 @@ def main():
     cls_model = ConvneXt().to(DEVICE)
     saved = torch.load(MODEL_PATH)
     cls_model.load_state_dict(saved['model_state_dict'])
-
     model = ConvneXt_with_Arcface(cls_model, cls_model.embedding, cls_model.class_num,
                                   margin=config['margin']).to(DEVICE)
-
-    # mixup function
-    mixup_fn = Mixup(
-        mixup_alpha=config['mixup_alpha'], cutmix_alpha=config['cutmix'], cutmix_minmax=None,
-        prob=config['mixup_prob'], switch_prob=config['mixup_switch_prob'], mode='batch',
-        label_smoothing=config['label_smoothing'], num_classes=7000)
-
     # criterion
     criterion = torch.nn.CrossEntropyLoss()
-
     # scaler
     scaler = torch.cuda.amp.GradScaler()
-
     # optimizer
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
-    
     # scheduler
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = config['epochs'],
                                                            eta_min=config['min_lr'])
-    
     # train dataset and dataloader
     train_transforms = torchvision.transforms.Compose([
         torchvision.transforms.RandAugment(),
@@ -235,7 +197,6 @@ def main():
     torch.cuda.empty_cache()
 
     """# Wandb"""
-
     # API Key is in your wandb account, under settings (wandb.ai/settings)
     wandb.login(key="37061bfbfadfedb56c0e835f1ebf019bfe55febd")
 
@@ -251,7 +212,6 @@ def main():
     )
 
     """experiment"""
-
     best_acc = 0
 
     for epoch in range(config['epochs']):
@@ -260,7 +220,6 @@ def main():
 
         train_acc, train_loss = train_verification(model, train_dataloader,optimizer,
                                                     criterion, scaler)
-        
         print("\nEpoch {}/{}: \nTrain Acc {:.04f}%\t Train Loss {:.04f}\t Learning Rate {:.08f}".format(
             epoch + 1,
             config['epochs'],
@@ -290,8 +249,7 @@ def main():
             best_acc = val_acc
 
     run.finish()
-
   #-----------------------------------------------------------------------------
-    
+
 if __name__ == '__main__':
     main()

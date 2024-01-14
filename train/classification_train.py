@@ -45,21 +45,16 @@ config = {
     'mixup_mode': 'batch'
 }
 
-
 def train(model, dataloader, optimizer, criterion, scaler, mixup_fn):
-
     model.train()
-
     # Progress Bar
     batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True,
                      leave=False, position=0, desc='Train', ncols=5)
-
+    
     num_correct = 0
     total_loss = 0
-
     for i, (images, labels) in enumerate(dataloader):
         optimizer.zero_grad()  # Zero gradients
-
         images, labels = images.to(DEVICE), labels.to(DEVICE)
         # print("before mixing: image: ", images.shape, "labels: ", labels.shape)
         mixed_images, mixed_labels = mixup_fn(images, labels)
@@ -91,24 +86,19 @@ def train(model, dataloader, optimizer, criterion, scaler, mixup_fn):
 
     acc = 100 * num_correct / (config['batch_size'] * len(dataloader))
     total_loss = float(total_loss / len(dataloader))
-
     return acc, total_loss
-
 
 def validate(model, dataloader):
     criterion = torch.nn.CrossEntropyLoss()
     model.eval()
     batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True,
                      position=0, leave=False, desc='Val', ncols=5)
-
     num_correct = 0.0
     total_loss = 0.0
 
     for i, (images, labels) in enumerate(dataloader):
-
         # Move images to device
         images, labels = images.to(DEVICE), labels.to(DEVICE)
-
         # Get model outputs
         with torch.inference_mode():
             outputs = model(images)
@@ -134,7 +124,6 @@ def validate(model, dataloader):
 def main():
     # mean: tensor([0.5116, 0.4026, 0.3519]), std: tensor([0.3073, 0.2697, 0.2587])
     # Transforms using torchvision - Refer https://pytorch.org/vision/stable/transforms.html
-
     train_transforms = torchvision.transforms.Compose([
         torchvision.transforms.RandAugment(),
         torchvision.transforms.ToTensor(),
@@ -145,18 +134,15 @@ def main():
     # Most torchvision transforms are done on PIL images. So you convert it into a tensor at the end with ToTensor()
     # But there are some transforms which are performed after ToTensor() : e.g - Normalization
     # Normalization Tip - Do not blindly use normalization that is not suitable for this dataset
-
     valid_transforms = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize(
             mean=[0.5116, 0.4026, 0.3519], std=[0.3073, 0.2697, 0.2587])
     ])
-
     train_dataset = torchvision.datasets.ImageFolder(
         TRAIN_DIR, transform=train_transforms)
     valid_dataset = torchvision.datasets.ImageFolder(
         VAL_DIR, transform=valid_transforms)
-
 
     # Create data loaders
     train_loader = torch.utils.data.DataLoader(
@@ -183,7 +169,6 @@ def main():
 
     model = ConvneXt().to(DEVICE)
     summary(model, (3, 224, 224))
-
     criterion = SoftTargetCrossEntropy()
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config['lr'], weight_decay=config['weight_decay'])
@@ -192,12 +177,10 @@ def main():
         optimizer, T_max=config['epochs'], eta_min=config['min_lr'])
     scaler = torch.cuda.amp.GradScaler()
 
-
     gc.collect()  # These commands help you when you face CUDA OOM error
     torch.cuda.empty_cache()
 
     """# Wandb"""
-
     # API Key is in your wandb account, under settings (wandb.ai/settings)
     wandb.login(key="37061bfbfadfedb56c0e835f1ebf019bfe55febd")
 
@@ -213,18 +196,14 @@ def main():
     )
 
     """# Experiments"""
-
     best_valacc = 0.0
-
     mixup_fn = Mixup(
         mixup_alpha=config['mixup_alpha'], cutmix_alpha=config['cutmix'], cutmix_minmax=None,
         prob=config['mixup_prob'], switch_prob=config['mixup_switch_prob'], mode='batch',
         label_smoothing=config['label_smoothing'], num_classes=7000)
 
     for epoch in range(config['epochs']):
-
         curr_lr = float(optimizer.param_groups[0]['lr'])
-
         train_acc, train_loss = train(
             model, train_loader, optimizer, criterion, scaler, mixup_fn)
 
@@ -236,7 +215,6 @@ def main():
             curr_lr))
 
         val_acc, val_loss = validate(model, valid_loader)
-
         print("Val Acc {:.04f}%\t Val Loss {:.04f}".format(val_acc, val_loss))
 
         scheduler.step()
@@ -255,13 +233,11 @@ def main():
             best_valacc = val_acc
 
     run.finish()
-
     torch.save({'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'scheduler_state_dict': scheduler.state_dict(),
                 'val_acc': val_acc,
                 'epoch': epoch}, './convneXt_lr=2e-3_cosinelr_weightdecay=1e-2_randaug_mixupofficial.pth')
-
 
 if __name__ == '__main__':
     main()

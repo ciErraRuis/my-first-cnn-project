@@ -4,13 +4,11 @@ import torchvision
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 print("Device: ", DEVICE)
-
 """
 build the convneXt_small model
 """
 
 # Configs
-
 config = {
     'batch_size': 128,
     'lr': 2e-3,
@@ -21,9 +19,7 @@ config = {
     'eps': 1e-3,
 }
 
-
 # BackBone Block (input: in_channel)
-
 class Block(torch.nn.Module):
     def __init__(self, dim, drop_rate, layer_scale=1e-6):
         super().__init__()
@@ -50,23 +46,17 @@ class Block(torch.nn.Module):
 
         return x
 
-
 # ConvneXt architecture
-
 class ConvneXt(torch.nn.Module):
-
     """
     number of block in every stage: [3, 3, 27, 3]
     dim of every block: [96, 192, 384, 768]
     7000 classes
     """
-
     def __init__(self, class_num=7000):
         super().__init__()
-
         dim = config['stage_dim']
         drop_rate = config['drop_rate']
-
         self.stem = torch.nn.Conv2d(3, dim[0], 4, stride=4)
         self.layernorm_0 = torch.nn.LayerNorm(dim[0], eps=config['eps'])
 
@@ -77,7 +67,6 @@ class ConvneXt(torch.nn.Module):
             Block_1,
             Block_1
         )
-
         self.layernorm_1 = torch.nn.LayerNorm(dim[0], eps=config['eps'])
         self.downsample_1 = torch.nn.Conv2d\
             (dim[0], dim[1], 2, stride=2)
@@ -89,7 +78,6 @@ class ConvneXt(torch.nn.Module):
             Block_2,
             Block_2
         )
-
         self.layernorm_2 = torch.nn.LayerNorm(dim[1], eps=config['eps'])
         self.downsample_2 = torch.nn.Conv2d\
             (dim[1], dim[2], 2, stride=2)
@@ -125,7 +113,6 @@ class ConvneXt(torch.nn.Module):
             Block_3,
             Block_3,
         )
-
         self.layernorm_3 = torch.nn.LayerNorm(dim[2], eps=config['eps'])
         self.downsample_3 = torch.nn.Conv2d(dim[2], dim[3], 2, stride=2)
 
@@ -136,7 +123,6 @@ class ConvneXt(torch.nn.Module):
             Block_4,
             Block_4
         )
-
         self.layernorm_4 = torch.nn.LayerNorm(dim[3], eps=config['eps'])
 
         # classification
@@ -147,7 +133,7 @@ class ConvneXt(torch.nn.Module):
         self.embedding = dim[3]
         self.class_num = class_num
         
-        # from the official implementation of convnext
+    # from the official implementation of convnext
     def _init_weights(self, m):
         if isinstance(m, (torch.nn.Conv2d, torch.nn.Linear)):
             torch.nn.init.trunc_normal_(m.weight, std=0.02)
@@ -155,7 +141,6 @@ class ConvneXt(torch.nn.Module):
 
     # turning return_feats to true is used in verification task
     def forward(self, x, return_feats=False):
-
         x = self.stem(x)
         x = x.permute(0, 2, 3, 1)
         x = self.layernorm_0(x)

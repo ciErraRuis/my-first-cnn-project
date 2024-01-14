@@ -17,7 +17,6 @@ from convneXt import ConvneXt
 from convneXt_with_Arcface import ConvneXt_with_Arcface
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 MODEL_PATH = "convneXt_lr=2e-3_cosinelr_weightdecay=1e-2_randaug_mixupofficial.pth"
 DATA_DIR = "data/11-785-s23-hw2p2-classification"
 TRAIN_DIR = os.path.join(DATA_DIR, "train")
@@ -41,15 +40,12 @@ config = {
     'mixup_mode': 'batch'
 }
 
-
 def train_verification(model, dataloader, optimizer, criterion, scaler):
-
     model.train()
 
     # Progress Bar
     batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True,
                      leave=False, position=0, desc='Train', ncols=5)
-
     num_correct = 0
     total_loss = 0
 
@@ -93,7 +89,6 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
                       batch_size=config['batch_size'], mode='val', threshold=0.33):
 
     unknown_feats, known_feats = [], []
-
     batch_bar = tqdm(total=len(unknown_images)//batch_size,
                      dynamic_ncols=True, position=0, leave=False, desc=mode)
     model.eval()
@@ -102,10 +97,9 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
     for i in range(0, unknown_images.shape[0], batch_size):
         # Slice a given portion upto batch_size
         unknown_batch = unknown_images[i:i+batch_size]
-
+        # Get features from model
         with torch.no_grad():
-            unknown_feat = model(unknown_batch.float().to(
-                DEVICE))  # Get features from model
+            unknown_feat = model(unknown_batch.float().to(DEVICE))
         unknown_feats.append(unknown_feat)
         batch_bar.update()
 
@@ -113,12 +107,10 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
 
     batch_bar = tqdm(total=len(known_images)//batch_size,
                      dynamic_ncols=True, position=0, leave=False, desc=mode)
-
     for i in range(0, known_images.shape[0], batch_size):
         known_batch = known_images[i:i+batch_size]
         with torch.no_grad():
             known_feat = model(known_batch.float().to(DEVICE))
-
         known_feats.append(known_feat)
         batch_bar.update()
 
@@ -130,9 +122,7 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
 
     similarity_values = torch.stack(
         [similarity(unknown_feats, known_feature) for known_feature in known_feats])
-    # Print the inner list comprehension in a separate cell - what is really happening?
-
-    # Why are we doing an max here, where are the return values?
+    
     max_similarity_values, predictions = similarity_values.max(0)
 
     max_similarity_values, predictions = max_similarity_values.cpu(
@@ -162,33 +152,26 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
         CSV_PATH = os.path.join(VAL_DIR, "verification_dev.csv")
         true_ids = pd.read_csv(CSV_PATH)['label'].tolist()
         accuracy = accuracy_score(pred_id_strings, true_ids)
-
         return accuracy * 100
 
     return pred_id_strings
 
  #------------------------------------------------------------------------------
-
 def main():
     # get the evaluation data
     known_regex = "data/11-785-s23-hw2p2-verification/known/*/*"
-    known_paths = [i.split("/")[-2] for i in sorted(glob.glob(known_regex))]
-
-    unknown_test_regex = "data/11-785-s23-hw2p2-verification/unknown_test/*"
-
-    unknown_test_images = [Image.open(p) for p in tqdm(sorted(glob.glob(unknown_test_regex)))]
     known_images = [Image.open(p) for p in tqdm(sorted(glob.glob(known_regex)))]
+    known_paths = [i.split("/")[-2] for i in sorted(glob.glob(known_regex))]
+    unknown_test_regex = "data/11-785-s23-hw2p2-verification/unknown_test/*"
+    unknown_test_images = [Image.open(p) for p in tqdm(sorted(glob.glob(unknown_test_regex)))]
 
     transforms = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize(mean=[0.5116, 0.4026, 0.3519], std=[0.3073, 0.2697, 0.2587])])
-
     unknown_test_images = torch.stack([transforms(x) for x in unknown_test_images])
     known_images  = torch.stack([transforms(y) for y in known_images])
-
     similarity_metric = torch.nn.CosineSimilarity(dim= 1, eps= 1e-6)
 
-    
     gc.collect()  # These commands help you when you face CUDA OOM error
     torch.cuda.empty_cache()
 
@@ -198,7 +181,6 @@ def main():
     cls_model.load_state_dict(saved['model_state_dict'])
     model = ConvneXt_with_Arcface(cls_model, cls_model.embedding, cls_model.class_num,
                                   margin=config['margin']).to(DEVICE)    
-    
     # get the result
     pred_id_strings = eval_verification(unknown_test_images, known_images, known_paths, model, similarity_metric,
                                          config['batch_size'], mode='test')
@@ -207,7 +189,6 @@ def main():
         f.write("id,label\n")
         for i in range(len(pred_id_strings)):
             f.write("{},{}\n".format(i, pred_id_strings[i]))
-
   #-----------------------------------------------------------------------------
     
 if __name__ == '__main__':

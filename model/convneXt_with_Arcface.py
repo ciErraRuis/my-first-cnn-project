@@ -4,14 +4,13 @@ import torch.nn.functional as F
 
 
 # cls_model need to have weight attribute
-
 class ConvneXt_with_Arcface(torch.nn.Module):
 
     def __init__(self, cls_model, in_feature, out_feature, margin=0.45, scale=64, eps=1e-6):
 
         super(ConvneXt_with_Arcface, self).__init__()
         self.cls_model = cls_model
-        
+    
         #shape and initialized weights
         self.in_feature = in_feature
         self.out_feature = out_feature
@@ -19,6 +18,7 @@ class ConvneXt_with_Arcface(torch.nn.Module):
             in_feature, out_feature, bias=False)
         with torch.no_grad():
             self.AF_linear.weight.copy_(self.cls_model.cls_layer.weight)
+            
         #normalizer
         self.normalizer = F.normalize
 

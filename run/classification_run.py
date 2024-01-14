@@ -11,7 +11,6 @@ from convneXt import ConvneXt
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 print("DEVICE:", DEVICE)
 
-
 DATA_DIR = '../../hw2p2/data/11-785-s23-hw2p2-classification'
 TRAIN_DIR = os.path.join(DATA_DIR, "train")
 VAL_DIR = os.path.join(DATA_DIR, "dev")
@@ -19,7 +18,7 @@ TEST_DIR = os.path.join(DATA_DIR, "test")
 MODEL_PATH = "../../hw2p2/convnextS_lr2e-3_cosinelr_weightdecay1e-2_randaug_mixupofficial.pth"
 
 config = {
-    'batch_size': 128,
+    'batch_size': 128
 }
 
 # input a trained model and the dataloader to be tested
@@ -36,10 +35,8 @@ def test(model, dataloader):
     for i, (images) in enumerate(dataloader):
 
         images = images.to(DEVICE)
-
         with torch.inference_mode():
             outputs = model(images)
-
         outputs = torch.argmax(outputs, axis=1).detach().cpu().numpy().tolist()
         test_results.extend(outputs)
 
@@ -56,7 +53,6 @@ class ClassificationTestDataset(torch.utils.data.Dataset):
 
         self.data_dir = data_dir
         self.transforms = transforms
-
         self.img_paths = list(map(lambda fname: os.path.join(self.data_dir, fname),
                               sorted(os.listdir(self.data_dir))))
     
@@ -80,7 +76,6 @@ def main():
     test_loader = torch.utils.data.DataLoader(test_dataset,
                                               batch_size = config['batch_size'],
                                               num_workers=2)
-
     model = ConvneXt().to(DEVICE)
     summary(model, (3, 224, 224))
 
