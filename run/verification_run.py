@@ -142,7 +142,7 @@ def eval_verification(unknown_images, known_images, known_paths, model, similari
     NO_CORRESPONDENCE_LABEL = 'n000000'
     pred_id_strings = []
     for idx, prediction in enumerate(predictions):
-        # why < ? Thank about what is your similarity metric
+        # why < ? Think about what is your similarity metric
         if max_similarity_values[idx] < threshold:
             pred_id_strings.append(NO_CORRESPONDENCE_LABEL)
         else:
